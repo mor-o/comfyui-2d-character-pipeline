@@ -1,0 +1,87 @@
+{
+  "1": {
+    "class_type": "LoadVideo",
+    "inputs": {"file": "video_idle_breathing.mp4"},
+    "_meta": {"title": "Load video"}
+  },
+  "2": {
+    "class_type": "GetVideoComponents",
+    "inputs": {"video": ["1", 0]},
+    "_meta": {"title": "Get video components"}
+  },
+  "3": {
+    "class_type": "ImageFromBatch",
+    "inputs": {"image": ["2", 0], "batch_index": 0, "length": 33},
+    "_meta": {"title": "Slice first N frames"}
+  },
+  "10": {
+    "class_type": "BiRefNetRMBG",
+    "inputs": {
+      "image": ["3", 0],
+      "model": "BiRefNet_toonout",
+      "mask_blur": 2,
+      "mask_offset": 0,
+      "invert_output": false,
+      "refine_foreground": true,
+      "background": "Alpha"
+    },
+    "_meta": {"title": "BiRefNet segmentation"}
+  },
+  "20": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": ["3", 0],
+      "upscale_method": "lanczos",
+      "width": 128,
+      "height": 128,
+      "crop": "disabled"
+    },
+    "_meta": {"title": "Scale RGB to 128"}
+  },
+  "21": {
+    "class_type": "MaskToImage",
+    "inputs": {"mask": ["10", 1]},
+    "_meta": {"title": "Mask -> image for scaling"}
+  },
+  "22": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": ["21", 0],
+      "upscale_method": "lanczos",
+      "width": 128,
+      "height": 128,
+      "crop": "disabled"
+    },
+    "_meta": {"title": "Scale mask to 128"}
+  },
+  "23": {
+    "class_type": "ImageToMask",
+    "inputs": {"image": ["22", 0], "channel": "red"},
+    "_meta": {"title": "Scaled mask back to mask"}
+  },
+  "24": {
+    "class_type": "InvertMask",
+    "inputs": {"mask": ["23", 0]},
+    "_meta": {"title": "Invert mask (1=character -> alpha=1)"}
+  },
+  "26": {
+    "class_type": "ImageRGBToYUV",
+    "inputs": {"image": ["20", 0]},
+    "_meta": {"title": "RGB -> YUV (Y stored in R channel)"}
+  },
+  "27": {
+    "class_type": "ImageToMask",
+    "inputs": {"image": ["26", 0], "channel": "red"},
+    "_meta": {"title": "Extract Y (luma) as mask"}
+  },
+  "28": {
+    "class_type": "MaskToImage",
+    "inputs": {"mask": ["27", 0]},
+    "_meta": {"title": "Greyscale image (R=G=B=Y)"}
+  },
+  "25": {
+    "class_type": "JoinImageWithAlpha",
+    "inputs": {"image": ["28", 0], "alpha": ["24", 0]},
+    "_meta": {"title": "RGBA (greyscale + character mask)"}
+  }
+}

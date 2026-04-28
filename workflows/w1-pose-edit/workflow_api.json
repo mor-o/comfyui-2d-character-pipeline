@@ -1,0 +1,152 @@
+{
+  "1": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {"unet_name": "Qwen-Image-Edit-2509-Q5_K_M.gguf"},
+    "_meta": {"title": "Qwen Image Edit 2509 (Q5_K_M GGUF)"}
+  },
+  "2": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": ["1", 0],
+      "lora_name": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {"title": "2509 Lightning 4-step LoRA"}
+  },
+  "3": {
+    "class_type": "ModelSamplingAuraFlow",
+    "inputs": {"model": ["2", 0], "shift": 3},
+    "_meta": {"title": "ModelSamplingAuraFlow"}
+  },
+  "4": {
+    "class_type": "CFGNorm",
+    "inputs": {"model": ["3", 0], "strength": 1},
+    "_meta": {"title": "CFGNorm"}
+  },
+  "5": {
+    "class_type": "CLIPLoaderGGUF",
+    "inputs": {
+      "clip_name": "Qwen2.5-VL-7B-Instruct-Q5_K_M.gguf",
+      "type": "qwen_image"
+    },
+    "_meta": {"title": "Qwen 2.5 VL 7B (Q5_K_M + mmproj auto)"}
+  },
+  "6": {
+    "class_type": "VAELoader",
+    "inputs": {"vae_name": "qwen_image_vae.safetensors"},
+    "_meta": {"title": "Qwen Image VAE"}
+  },
+  "7": {
+    "class_type": "LoadImage",
+    "inputs": {"image": "source_idle_breathing.png"},
+    "_meta": {"title": "Source character"}
+  },
+  "8": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": ["7", 0],
+      "upscale_method": "lanczos",
+      "width": 512,
+      "height": 512,
+      "crop": "disabled"
+    },
+    "_meta": {"title": "Scale source to 512x512"}
+  },
+  "9": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": ["5", 0],
+      "prompt": "The same chibi cartoon character from the reference image in a relaxed idle standing pose, front-facing, arms hanging relaxed at the sides, feet planted at the bottom of the frame. Keep the identical character identity, skin tone, clean black line art outlines, flat colors, pure white empty background. Head is a smooth perfectly blank bald scalp with NO face whatsoever - no eyes, no mouth, no nose, no ears, no blush, no facial features of any kind. Body is naked with no clothing, no hair, no accessories. The character floats freely against a pure white background with NO shadow, NO ground, NO cast shadow, NO ellipse or dark oval under the feet, NO horizon, NO floor, NO surface.",
+      "vae": ["6", 0],
+      "image1": ["8", 0]
+    },
+    "_meta": {"title": "Positive edit prompt"}
+  },
+  "10": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": ["5", 0],
+      "prompt": "",
+      "vae": ["6", 0],
+      "image1": ["8", 0]
+    },
+    "_meta": {"title": "Negative (empty)"}
+  },
+  "11": {
+    "class_type": "VAEEncode",
+    "inputs": {"pixels": ["8", 0], "vae": ["6", 0]},
+    "_meta": {"title": "Encode base to latent"}
+  },
+  "15": {
+    "class_type": "ControlNetLoader",
+    "inputs": {"control_net_name": "Qwen-Image-InstantX-ControlNet-Union.safetensors"},
+    "_meta": {"title": "InstantX Union ControlNet"}
+  },
+  "16": {
+    "class_type": "SetUnionControlNetType",
+    "inputs": {"control_net": ["15", 0], "type": "openpose"},
+    "_meta": {"title": "Select openpose channel"}
+  },
+  "17": {
+    "class_type": "LoadImage",
+    "inputs": {"image": "pose_idle_breathing.png"},
+    "_meta": {"title": "OpenPose skeleton"}
+  },
+  "19": {
+    "class_type": "VRAMUnloadClip",
+    "inputs": {
+      "positive": ["9", 0],
+      "negative": ["10", 0],
+      "clip": ["5", 0]
+    },
+    "_meta": {"title": "Unload VL encoder before UNET loads"}
+  },
+  "18": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": ["19", 0],
+      "negative": ["19", 1],
+      "control_net": ["16", 0],
+      "image": ["17", 0],
+      "strength": 1.3,
+      "start_percent": 0,
+      "end_percent": 1,
+      "vae": ["6", 0]
+    },
+    "_meta": {"title": "Apply ControlNet (pose)"}
+  },
+  "12": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["4", 0],
+      "seed": 20260418,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "positive": ["18", 0],
+      "negative": ["18", 1],
+      "latent_image": ["11", 0],
+      "denoise": 1
+    },
+    "_meta": {"title": "KSampler (4-step Lightning)"}
+  },
+  "20": {
+    "class_type": "VRAMUnloadModel",
+    "inputs": {"latent": ["12", 0], "model": ["4", 0]},
+    "_meta": {"title": "Unload Qwen-Edit UNET after sampling"}
+  },
+  "13": {
+    "class_type": "VAEDecode",
+    "inputs": {"samples": ["20", 0], "vae": ["6", 0]},
+    "_meta": {"title": "Decode"}
+  },
+  "14": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["13", 0],
+      "filename_prefix": "character_pipeline/base_animations/idle_breathing/poses/posed_idle_breathing"
+    },
+    "_meta": {"title": "Save posed character"}
+  }
+}

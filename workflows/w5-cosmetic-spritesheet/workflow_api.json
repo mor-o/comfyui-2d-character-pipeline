@@ -1,0 +1,104 @@
+{
+  "1": {
+    "class_type": "LoadVideo",
+    "inputs": {"file": "cosmetic_pink_hair_idle_breathing.mp4"},
+    "_meta": {"title": "Load cosmetic video"}
+  },
+  "2": {
+    "class_type": "GetVideoComponents",
+    "inputs": {"video": ["1", 0]},
+    "_meta": {"title": "Get video components"}
+  },
+  "3": {
+    "class_type": "ImageFromBatch",
+    "inputs": {"image": ["2", 0], "batch_index": 0, "length": 33},
+    "_meta": {"title": "Slice first N frames"}
+  },
+  "10": {
+    "class_type": "SAM3Segment",
+    "inputs": {
+      "image": ["3", 0],
+      "prompt": "hair",
+      "output_mode": "Merged",
+      "confidence_threshold": 0.2,
+      "mask_offset": 0,
+      "mask_blur": 0,
+      "device": "Auto",
+      "invert_output": false,
+      "unload_model": true,
+      "background": "Alpha",
+      "background_color": "#222222"
+    },
+    "_meta": {"title": "SAM3 per-frame cosmetic segmentation"}
+  },
+  "11": {
+    "class_type": "AILab_MaskEnhancer",
+    "inputs": {
+      "mask": ["10", 1],
+      "sensitivity": 1,
+      "mask_blur": 0,
+      "mask_offset": 0,
+      "smooth": 1,
+      "fill_holes": true,
+      "invert_output": false
+    },
+    "_meta": {"title": "Clean per-frame masks"}
+  },
+  "12": {
+    "class_type": "MaskToImage",
+    "inputs": {"mask": ["11", 0]},
+    "_meta": {"title": "Enhanced mask -> image"}
+  },
+  "13": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": ["12", 0],
+      "upscale_method": "lanczos",
+      "width": 128,
+      "height": 128,
+      "crop": "disabled"
+    },
+    "_meta": {"title": "Scale mask to 128"}
+  },
+  "14": {
+    "class_type": "ImageToMask",
+    "inputs": {"image": ["13", 0], "channel": "red"},
+    "_meta": {"title": "Scaled mask back to mask (1=cosmetic)"}
+  },
+  "15": {
+    "class_type": "InvertMask",
+    "inputs": {"mask": ["14", 0]},
+    "_meta": {"title": "Invert (JoinImageWithAlpha: 1=transparent)"}
+  },
+  "20": {
+    "class_type": "ImageScale",
+    "inputs": {
+      "image": ["3", 0],
+      "upscale_method": "lanczos",
+      "width": 128,
+      "height": 128,
+      "crop": "disabled"
+    },
+    "_meta": {"title": "Scale RGB to 128"}
+  },
+  "26": {
+    "class_type": "ImageRGBToYUV",
+    "inputs": {"image": ["20", 0]},
+    "_meta": {"title": "RGB -> YUV (Y stored in R channel)"}
+  },
+  "27": {
+    "class_type": "ImageToMask",
+    "inputs": {"image": ["26", 0], "channel": "red"},
+    "_meta": {"title": "Extract Y (luma) as mask"}
+  },
+  "28": {
+    "class_type": "MaskToImage",
+    "inputs": {"mask": ["27", 0]},
+    "_meta": {"title": "Greyscale image (R=G=B=Y)"}
+  },
+  "25": {
+    "class_type": "JoinImageWithAlpha",
+    "inputs": {"image": ["28", 0], "alpha": ["15", 0]},
+    "_meta": {"title": "RGBA (greyscale + cosmetic mask)"}
+  }
+}
